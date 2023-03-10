@@ -1,0 +1,10 @@
+version: "3"
+services:
+    report-api:
+        container_name: report-api
+        image: report-api
+        build:
+          context: .
+          dockerfile: Dockerfile.api
+        ports:
+            - "8000:8000"
