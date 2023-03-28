@@ -1,8 +1,8 @@
 from typing import Any
 from fastapi import Request, FastAPI
 from fastapi.responses import JSONResponse, FileResponse
-import src.utils
 import os
+import json
 
 app = FastAPI()
 
@@ -16,8 +16,12 @@ def create_report(
     filename: str = 'test.json',
     http_request: Request
 ) -> Any:
-    src.utils.create_report(filename)
-    return JSONResponse(content="OK",status_code=200)
+    if not os.path.exists(filename):
+        with open(filename, 'x') as jsonFile:
+            data = {"requests": []}
+            json.dump(data, jsonFile)
+        return JSONResponse(content=f"Report named {filename} created",status_code=200)
+    return JSONResponse(content=f"Report named {filename} already exists",status_code=409)
 
 
 @app.get("/report")
@@ -41,8 +45,25 @@ async def update_report(
     http_request: Request
 ) -> Any:
     json_request = await http_request.json()
-    src.utils.update_report(filename, json_request=json_request)
-    return JSONResponse(content="OK",status_code=200)
+
+    if not os.path.exists(filename):
+        return JSONResponse(content="File not Found",status_code=404)
+
+    with open(filename, "r") as jsonFile:
+            data = json.load(jsonFile)
+            
+    request_count = len(data["requests"])
+    json_data = {"id": request_count}
+        
+    if json_request is not None:
+        json_data.update(json_request)
+    
+    data["requests"].append(json_data)
+
+    with open(filename, "w") as jsonFile:
+        json.dump(data, jsonFile)
+
+    return JSONResponse(content="Report updated",status_code=200)
 
 @app.delete("/report")
 def delete_report(
@@ -50,5 +71,7 @@ def delete_report(
     filename: str = 'test.json',
     http_request: Request
 ) -> Any:
-    src.utils.delete_report(filename)
-    return JSONResponse(content="OK",status_code=200)
+    if os.path.exists(filename):
+        os.remove(filename)
+        return JSONResponse(content="Report deleted",status_code=200)
+    return JSONResponse(content="File not Found",status_code=404)
